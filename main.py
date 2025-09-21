@@ -1,12 +1,13 @@
-from astrbot.decorators import on_message, on_cron
-from astrbot.core import Bot, Message
-from astrbot.scheduler import CronJob
+# 完全适配新版模块的导入方式
+from astrbot import decorators as dec
+from astrbot import core as core
+from astrbot import scheduler as schd
 import time
 import re
 
 # ========== 功能1：撤回消息 ==========
-@on_message(keywords=["/撤回"])
-async def recall_msg(bot: Bot, msg: Message):
+@dec.on_message(keywords=["/撤回"])
+async def recall_msg(bot: core.Bot, msg: core.Message):
     cmd = msg.text.strip()
     at_users = msg.mentions
     count_match = re.search(r"\d+", cmd)
@@ -22,21 +23,21 @@ async def recall_msg(bot: Bot, msg: Message):
 
 
 # ========== 功能2：宵禁定时任务 ==========
-@on_message(keywords=["/宵禁"])
-async def set_curfew(bot: Bot, msg: Message):
+@dec.on_message(keywords=["/宵禁"])
+async def set_curfew(bot: core.Bot, msg: core.Message):
     time_range = msg.text.split(" ")[1]
     start, end = time_range.split("-")
     start_h, start_m = map(int, start.split(":"))
     end_h, end_m = map(int, end.split(":"))
 
-    job = CronJob(
+    job = schd.CronJob(
         name="curfew",
         cron=f"{start_m} {start_h} * * *",
         func=lambda: bot.set_chat_permission(msg.chat_id, "forbidden"),
     )
     await bot.add_cron_job(job)
 
-    job = CronJob(
+    job = schd.CronJob(
         name="curfew_end",
         cron=f"{end_m} {end_h} * * *",
         func=lambda: bot.set_chat_permission(msg.chat_id, "normal"),
@@ -47,8 +48,8 @@ async def set_curfew(bot: Bot, msg: Message):
 
 
 # ========== 功能3：清屏（空两格逐行显示） ==========
-@on_message(keywords=["/清屏"])
-async def clear_screen(bot: Bot, msg: Message):
+@dec.on_message(keywords=["/清屏"])
+async def clear_screen(bot: core.Bot, msg: core.Message):
     prompt_lines = [
         "  正",
         "  在",
