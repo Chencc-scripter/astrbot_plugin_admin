@@ -1,4 +1,6 @@
-from astrbot import on_message, on_cron, Bot, Message, CronJob
+from astrbot.decorators import on_message, on_cron
+from astrbot.core import Bot, Message
+from astrbot.scheduler import CronJob
 import time
 import re
 
