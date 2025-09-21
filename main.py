@@ -1,24 +1,78 @@
-from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
-from astrbot.api.star import Context, Star, register
-from astrbot.api import logger
+from astrbot import on_message, on_cron, Bot, Message, CronJob
+import time
+import re
 
-@register("helloworld", "YourName", "一个简单的 Hello World 插件", "1.0.0")
-class MyPlugin(Star):
-    def __init__(self, context: Context):
-        super().__init__(context)
+# ========== 功能1：撤回消息 ==========
+@on_message(keywords=["/撤回"])
+async def recall_msg(bot: Bot, msg: Message):
+    cmd = msg.text.strip()
+    at_users = msg.mentions
+    count_match = re.search(r"\d+", cmd)
+    count = int(count_match.group()) if count_match else 20
 
-    async def initialize(self):
-        """可选择实现异步的插件初始化方法，当实例化该插件类之后会自动调用该方法。"""
-    
-    # 注册指令的装饰器。指令名为 helloworld。注册成功后，发送 `/helloworld` 就会触发这个指令，并回复 `你好, {user_name}!`
-    @filter.command("helloworld")
-    async def helloworld(self, event: AstrMessageEvent):
-        """这是一个 hello world 指令""" # 这是 handler 的描述，将会被解析方便用户了解插件内容。建议填写。
-        user_name = event.get_sender_name()
-        message_str = event.message_str # 用户发的纯文本消息字符串
-        message_chain = event.get_messages() # 用户所发的消息的消息链 # from astrbot.api.message_components import *
-        logger.info(message_chain)
-        yield event.plain_result(f"Hello, {user_name}, 你发了 {message_str}!") # 发送一条纯文本消息
+    if at_users:
+        for user in at_users:
+            await bot.recall_messages(user_id=user.user_id, count=count)
+        await bot.send_msg(msg, f"已为你撤回@{user.nickname} 的{count}条消息")
+    else:
+        await bot.recall_messages(chat_id=msg.chat_id, count=count)
+        await bot.send_msg(msg, f"已为你撤回当前群的{count}条消息")
 
-    async def terminate(self):
-        """可选择实现异步的插件销毁方法，当插件被卸载/停用时会调用。"""
+
+# ========== 功能2：宵禁定时任务 ==========
+@on_message(keywords=["/宵禁"])
+async def set_curfew(bot: Bot, msg: Message):
+    time_range = msg.text.split(" ")[1]
+    start, end = time_range.split("-")
+    start_h, start_m = map(int, start.split(":"))
+    end_h, end_m = map(int, end.split(":"))
+
+    job = CronJob(
+        name="curfew",
+        cron=f"{start_m} {start_h} * * *",
+        func=lambda: bot.set_chat_permission(msg.chat_id, "forbidden"),
+    )
+    await bot.add_cron_job(job)
+
+    job = CronJob(
+        name="curfew_end",
+        cron=f"{end_m} {end_h} * * *",
+        func=lambda: bot.set_chat_permission(msg.chat_id, "normal"),
+    )
+    await bot.add_cron_job(job)
+
+    await bot.send_msg(msg, f"宵禁已设置：{start}-{end}")
+
+
+# ========== 功能3：清屏（空两格逐行显示） ==========
+@on_message(keywords=["/清屏"])
+async def clear_screen(bot: Bot, msg: Message):
+    prompt_lines = [
+        "  正",
+        "  在",
+        "  清",
+        "  屏",
+        "  ，",
+        "  请",
+        "  勿",
+        "  打",
+        "  扰",
+        "  ，",
+        "  闲",
+        "  杂",
+        "  人",
+        "  等",
+        "  ，",
+        "  靠",
+        "  边",
+        "  等",
+        "  候",
+        "  ，",
+        "  正",
+        "  在",
+        "  清",
+        "  屏"
+    ]
+    for line in prompt_lines:
+        await bot.send_msg(msg, line)
+        time.sleep(1.25)
